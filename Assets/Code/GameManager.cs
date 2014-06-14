@@ -10,8 +10,8 @@ using UnityEngine;
 using System.Collections;
 
 public class GameManager : MonoBehaviour {
-	
-	public static float volume = checkVolume();
+
+	public static float volume = CheckVolume();
     private static int team1score = 0, team2score = 0;
     public GameObject stonesDeposit;
     public Camera playerCam;
@@ -19,11 +19,13 @@ public class GameManager : MonoBehaviour {
     public Camera bullseyeCam;
     private eGameState mGameState;
     private Player player;
-	//Added by Aidan
 	private static int roundCounter;
     public Vector3 BACK_OF_HOUSE_POSITION;
     public Vector3 GUARD_LINE_POSITION;
-    
+    public GUIText hudDisqualified;
+    public GUIText hudResetPosition;
+    public GUIText hudBrushNow;
+
     public enum eGameState {
         ePlayer = 0,
         eRock,
@@ -31,29 +33,52 @@ public class GameManager : MonoBehaviour {
     }
 
     void Awake() {
-        Screen.showCursor = false;
-		ChangeState (eGameState.ePlayer);
-        player = FindObjectOfType<Player>();
+        Screen.showCursor =         false;
+		ChangeState                 (eGameState.ePlayer);
+        player =                    FindObjectOfType<Player>();
+        roundCounter =              1;
 
         BACK_OF_HOUSE_POSITION =    GameObject.FindGameObjectWithTag("BackOfHouse").transform.position;
         GUARD_LINE_POSITION =       GameObject.FindGameObjectWithTag("GuardLine").transform.position;
 	}
 
-	private static float checkVolume() {
-		if ( PlayerPrefs.HasKey("volume") ) 
-		{
+    public void ChangeState(eGameState state) {
+        mGameState = state;
+
+        // disable all cameras
+        rockCam.enabled =       false;
+        playerCam.enabled =     false;
+        bullseyeCam.enabled =   false;
+        HUDBrushNow(false);
+
+        if (state == eGameState.ePlayer) {
+            playerCam.enabled = true;
+        }
+
+        if (state == eGameState.eRock) {
+            rockCam.enabled =   true;
+            HUDBrushNow(true);
+        }
+
+        if (state == eGameState.eBullseye) {
+            // i dont think this ever gets used =[ -Krz
+            EndOfRound();
+            bullseyeCam.enabled = true;
+        }
+    }
+
+	private static float CheckVolume() {
+		if ( PlayerPrefs.HasKey("volume") ) {
 			volume = PlayerPrefs.GetFloat( "volume" );
 			return volume;
-		}
-		else 
-		{
+		} else {
 			volume = 1.0f;
 		}
 
 		return volume;
 	}
-	
-	void Update() {	
+
+	void Update() {
 		if ( Input.GetKeyUp( KeyCode.Escape ) ) {
 			Application.LoadLevel( "mainMenu" );
 		}
@@ -78,12 +103,10 @@ public class GameManager : MonoBehaviour {
         GivePoints(winningTeam, GetEnemyClosestToBullseye(winningTeam) );
         Debug.Log("Game Over");
         Debug.Log(winningTeam + "won the game");
-		
-        EndOfRound();
     }
 
     private void EndOfRound() {
-		//Added by Aidan
+        UpdateScores();
 		roundCounter++;
 		print ("Round number: " + roundCounter.ToString ());
 		Application.LoadLevel ("EndOfRound");
@@ -137,33 +160,12 @@ public class GameManager : MonoBehaviour {
                 team1score += points;
                 break;
             }
-                
+
             case eTeam.TEAM_BLUE:
             {
                 team2score += points;
                 break;
             }
-        }
-    }
-
-    public void ChangeState( eGameState state ) {
-        mGameState = state;
-
-        // disable all cameras and turn scrubbers off
-        rockCam.enabled = false;
-        playerCam.enabled = false;
-        bullseyeCam.enabled = false;
-
-        if ( state == eGameState.ePlayer ) {
-            playerCam.enabled = true;
-        }
-
-        if ( state == eGameState.eRock ) {
-            rockCam.enabled = true;
-        }
-
-        if (state == eGameState.eBullseye) {
-            bullseyeCam.enabled = true;
         }
     }
 
@@ -177,17 +179,17 @@ public class GameManager : MonoBehaviour {
 		PlayerPrefs.Save();
 	}
 
-	public static int[] getScore() {
+	public static int[] GetScore() {
 		int[] scores = {team1score, team2score};
 		return scores;
 	}
 
     public bool IsTeamOne() {
-        return (FindObjectOfType<Player>().team == eTeam.TEAM_RED);
+        return (FindObjectOfType<Player>().GetTeam() == eTeam.TEAM_RED);
     }
 
     public bool IsTeamTwo() {
-        return (FindObjectOfType<Player>().team == eTeam.TEAM_BLUE);
+        return (FindObjectOfType<Player>().GetTeam() == eTeam.TEAM_BLUE);
     }
 
 	public static int TeamOneStonesLeft() {
@@ -223,8 +225,40 @@ public class GameManager : MonoBehaviour {
     }
 
 	//Added by Aidan
-	public static int getRoundNumber() {
+	public static int GetRoundNumber() {
 		return roundCounter;
 	}
 
+    public void HUDResetPosition() {
+        //turn hud reset position on for half a second
+        if (!hudResetPosition.guiText.enabled) {
+            hudResetPosition.guiText.enabled = true;
+            StartCoroutine(HUDResetPositionCont());
+        }
+    }
+
+    public IEnumerator HUDResetPositionCont() {
+        yield return new WaitForSeconds(1);
+
+        hudResetPosition.guiText.enabled = false;
+    }
+
+    public void HUDDisqualified() {
+        //tell player disqualified they passed the hogline
+        if (!hudDisqualified.guiText.enabled) {
+            hudDisqualified.guiText.enabled = true;
+            StartCoroutine(HUDDisqualifiedCont());
+        }
+    }
+
+    public IEnumerator HUDDisqualifiedCont() {
+        yield return new WaitForSeconds(1);
+
+        hudDisqualified.guiText.enabled = false;
+    }
+
+    private void HUDBrushNow(bool setting) {
+        //tell player to brush now by moving the mouse up and down fast
+        hudBrushNow.guiText.enabled = setting;
+    }
 }
